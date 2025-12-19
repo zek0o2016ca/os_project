@@ -45,21 +45,24 @@ public class FIFO {
             int[] pageRequests = new int[n];
             System.out.println("Enter page numbers (non-negative integers):");
             for (int i = 0; i < n; i++) {
-                while (true) {
+             /*   while (true) {
                     if (sc.hasNextInt()) {
                         int page = sc.nextInt();
                         if (page < 0) {
                             System.out.println("Page number cannot be negative. Enter again:");
                         } else {
-                            pageRequests[i] = page;
+                            
                             break;
                         }
                     } else {
                         System.out.println("Invalid input. Enter a non-negative integer:");
                         sc.next();
                     }
-                }
-            }
+                } */
+            
+                //Filling page requests with sequential numbers for simplicity
+                pageRequests[i] = i;
+        }
 
             // Physical memory
             int[] frames = new int[frameCount];
@@ -78,14 +81,14 @@ public class FIFO {
             for (int page : pageRequests) {
                 PageTableEntry entry = pageTable.getOrDefault(page, new PageTableEntry());
 
-                if (entry.valid) {
+              /*  if (entry.valid) {
                     System.out.println("Page " + page + " HIT");
-                } else {
+                } else { */
                     System.out.println("Page " + page + " FAULT");
                     pageFaults++;
 
                     if (fifoQueue.size() < frameCount) {
-                        // يوجد Frame فاضي
+                        // Empty frame available
                         for (int i = 0; i < frames.length; i++) {
                             if (frames[i] == -1) {
                                 frames[i] = page;
@@ -96,30 +99,34 @@ public class FIFO {
                             }
                         }
                     } else {
-                        // Frame ممتلئ → نخرج أقدم صفحة (FIFO)
+                        //frame is full -> evict the oldest page (FIFO)
                         int victimPage = fifoQueue.poll();
                         int victimFrame = pageTable.get(victimPage).frameNumber;
 
                         System.out.println("Removing page " + victimPage + " from frame " + victimFrame);
 
-                        // استبدال الصفحة
+                        
+                        //replace the page
                         frames[victimFrame] = page;
                         entry.frameNumber = victimFrame;
                         entry.valid = true;
                         fifoQueue.add(page);
 
-                        // تحديث Page Table للصفحة التي أخرجناها
+            
+                        //udate the page table for the evicted page
                         PageTableEntry victimEntry = pageTable.get(victimPage);
                         victimEntry.valid = false;
                         victimEntry.frameNumber = -1;
                         pageTable.put(victimPage, victimEntry);
                     }
-                }
+                //}
 
-                // تحديث Page Table للصفحة الحالية
+                
+                //update the page table for the current page
                 pageTable.put(page, entry);
 
-                // طباعة حالة الذاكرة الحالية
+            
+                //print current memory state
                 System.out.print("Frames: ");
                 for (int f : frames) {
                     if (f == -1) System.out.print("- ");
