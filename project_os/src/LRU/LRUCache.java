@@ -1,66 +1,136 @@
 package LRU;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
-class LRUCache {
-    private int capacity;
-    private LinkedHashMap<Integer, Integer> cache;
-    private Statistics stats;
+public class LRUCache{
 
-    public LRUCache(int capacity) {
-        this.capacity = capacity;
-        this.stats = new Statistics();
-        // LinkedHashMap with access order (true parameter)
-        this.cache = new LinkedHashMap<Integer, Integer>(capacity, 0.75f, true) {
-            @Override
-            protected boolean removeEldestEntry(Map.Entry<Integer, Integer> eldest) {
-                return size() > capacity;
+    private final int numFrames;
+    private final Page[] frames;
+    private int pageFaults = 0;
+    private int currentTime = 0;
+
+    public LRUCache(int numFrames) {
+        this.numFrames = numFrames;
+        this.frames = new Page[numFrames];
+    }
+
+    public String processReference(int refId) {
+        currentTime++;
+        int hitIndex = -1;
+
+        // 1. Check for Hit (Is the page already in memory?)
+        for (int i = 0; i < numFrames; i++) {
+            if (frames[i] != null && frames[i].id == refId) {
+                hitIndex = i;
+                break;
             }
-        };
-    }
-
-    public void accessPage(int page) {
-        if (cache.containsKey(page)) {
-            handlePageHit(page);
-        } else {
-            handlePageFault(page);
-        }
-        displayCurrentState();
-    }
-
-    private void handlePageHit(int page) {
-        stats.incrementPageHits();
-        cache.get(page); // Updates access order
-        System.out.println("LRU.Page " + page + " → HIT ✓");
-    }
-
-    private void handlePageFault(int page) {
-        stats.incrementPageFaults();
-
-        if (cache.size() >= capacity) {
-            int lruPage = cache.keySet().iterator().next();
-            System.out.println("LRU.Page " + page + " → MISS ✗ (Replaced: " + lruPage + ")");
-        } else {
-            System.out.println("LRU.Page " + page + " → MISS ✗ (Empty frame)");
         }
 
-        cache.put(page, page);
-    }
-
-    private void displayCurrentState() {
-        System.out.print("Frames: [");
-        List<Integer> pages = new ArrayList<>(cache.keySet());
-        for (int i = 0; i < pages.size(); i++) {
-            System.out.print(pages.get(i));
-            if (i < pages.size() - 1) System.out.print(", ");
+        if (hitIndex != -1) {
+            // HIT: Update the last used time to the current clock
+            frames[hitIndex].lastUsedTime = currentTime;
+            return "Hit";
         }
-        System.out.println("]\n");
+
+        // 2. Handle FAULT
+        pageFaults++;
+        int replaceIndex = findReplacementIndex();
+
+        // Insert new page with current timestamp
+        frames[replaceIndex] = new Page(refId, currentTime);
+        return "Fault";
     }
 
-    public Statistics getStatistics() {
-        return stats;
+    private int findReplacementIndex() {
+        // First check for empty slots (initial filling)
+        for (int i = 0; i < numFrames; i++) {
+            if (frames[i] == null) return i;
+        }
+
+        // LRU Logic: Find the page with the SMALLEST lastUsedTime
+        // (the one used furthest back in the past)
+        int leastUsedTime = Integer.MAX_VALUE;
+        int replaceIndex = 0;
+
+        for (int i = 0; i < numFrames; i++) {
+            if (frames[i].lastUsedTime < leastUsedTime) {
+                leastUsedTime = frames[i].lastUsedTime;
+                replaceIndex = i;
+            }
+        }
+        return replaceIndex;
+    }
+
+    public String getFrameState() {
+        StringJoiner sj = new StringJoiner(", ", "[", "]");
+        for (Page p : frames) {
+            if (p != null) sj.add(String.valueOf(p.id));
+        }
+        return sj.toString();
+    }
+
+    public int getPageFaults() { return pageFaults; }
+
+    public void simulateLRU(int[] pages, int capacity) {
+        List<Integer> frames = new ArrayList<>();
+        Map<Integer, Integer> lastUsedTime = new HashMap<>();
+
+        int pageFaults = 0;
+        int timer = 0;
+
+        System.out.println("\n--- LRU Simulation ---");
+        System.out.println("Ref | Frames               | Status");
+        System.out.println("------------------------------------");
+
+        for (int page : pages) {
+            timer++;
+            String status;
+
+            // 1. Check for Hit
+            if (frames.contains(page)) {
+                status = "Hit";
+                // Update timestamp on Hit
+                lastUsedTime.put(page, timer);
+            }
+            // 2. Handle Fault
+            else {
+                status = "Fault";
+                pageFaults++;
+
+                if (frames.size() < capacity) {
+                    frames.add(page);
+                } else {
+                    // Find replacement index logic from LRUCache
+                    int victimIndex = -1;
+                    int minTime = Integer.MAX_VALUE;
+
+                    for (int i = 0; i < frames.size(); i++) {
+                        int p = frames.get(i);
+                        int lastUsed = lastUsedTime.get(p);
+
+                        if (lastUsed < minTime) {
+                            minTime = lastUsed;
+                            victimIndex = i;
+                        }
+                    }
+
+                    int removedPage = frames.get(victimIndex);
+
+                    // Remove old map entry
+                    lastUsedTime.remove(removedPage);
+
+                    // Replace page in frame
+                    frames.set(victimIndex, page);
+                }
+                // Set timestamp for new/faulted page
+                lastUsedTime.put(page, timer);
+            }
+            System.out.printf("%-3d | %-20s | %s\n", page, frames.toString(), status);
+        }
+
+        System.out.println("------------------------------------");
+        System.out.println("Total Hits: " + (pages.length - pageFaults));
+        System.out.println("Total Page Faults: " + pageFaults);
+        System.out.printf("Fault Rate: %.2f%%\n", (double) pageFaults / pages.length * 100);
     }
 }

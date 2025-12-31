@@ -15,14 +15,14 @@ public class LFUPageReplacement {
         // Get user input
         int frames = input.getFrameCount();
         int[] pages = input.getPageReferenceString();
-//        int[] pages = {1,2,3,4, 7, 0,1,2,0,3,0, 4, 2, 3,0, 3,0, 3,2,
-//                1, 2,0,1, 7,0, 1};
+//        int[] pages = {1, 2, 3, 4, 7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 0, 3, 2,
+//                1, 2, 0, 1, 7, 0, 1};
 //        int[] pages = { 1, 2, 3, 4, 2, 1, 5 };
-//        int[] pages = { 5, 0, 1, 3, 2, 4, 1, 0, 5 };
+//        int[] pages = {5, 0, 1, 3, 2, 4, 1, 0, 5};
 //        int frames = 4;
         display.printPageReferenceString(pages);
 
-        int pagefaults = pageFaults(pages.length - 1, frames, pages);
+        int pagefaults = pageFaults(pages, frames);
 
         System.out.println("Page Faults = "
                 + pagefaults);
@@ -31,58 +31,86 @@ public class LFUPageReplacement {
         double faultRate = (pagefaults * 100.0) / pages.length;
         System.out.println("Fault Rate = " + faultRate + "%");
     }
-    static int pageFaults(int n, int c, int[] pages) {
+
+   public static int pageFaults(int[] pages, int frames) {
         int faults = 0;
 
-        List<Integer> memory = new ArrayList<>();
+        LinkedHashSet<Integer> memory = new LinkedHashSet<>();
+
         Map<Integer, Integer> freq = new HashMap<>();
 
         System.out.println("\n--- LFU Simulation Steps ---\n");
 
-        for (int i = 0; i <= n; i++) {
+        for (int i = 0; i < pages.length; i++) {
             int currentPage = pages[i];
             boolean isFault = false;
 
-            int idx = memory.indexOf(currentPage);
+            //if vaild in memory
+            if (memory.contains(currentPage)) {
+                // increment the freq
+                freq.put(currentPage, freq.get(currentPage) + 1);
+                isFault = false;
 
-            // PAGE FAULT
-            if (idx == -1) {
+                memory.remove(currentPage);
+                memory.add(currentPage);
+            }
+            // if page is invaild
+            else {
                 isFault = true;
+                faults++;
 
-                if (memory.size() == c) {
-                    memory.remove(0);
+                // if memory is full remove the least freq and not vaild in memory
+                if (memory.size() == frames) {
+                    int pageToRemove = findLFUPage(memory, freq);
+                    memory.remove(pageToRemove);
+                    freq.remove(pageToRemove);
                 }
 
+                // add page in memory
                 memory.add(currentPage);
-                freq.put(currentPage, freq.getOrDefault(currentPage, 0) + 1);
-                faults++;
+                freq.put(currentPage, 1);
             }
-            // PAGE HIT
-            else {
-                freq.put(currentPage, freq.get(currentPage) + 1);
-            }
-
-            int k = memory.size() - 2;
-            while (k >= 0 && freq.get(memory.get(k)) > freq.get(memory.get(k + 1))) {
-                Collections.swap(memory, k, k + 1);
-                k--;
-            }
-
             // 🔹 PRINT STEP DETAILS
-            System.out.println("Page: " + currentPage +
-                    (isFault ? " → FAULT" : " → HIT"));
-
-            System.out.println("Memory: " + memory);
-
-            System.out.print("Frequencies: { ");
-            for (int p : memory) {
-                System.out.print(p + "=" + freq.get(p) + " ");
-            }
-            System.out.println("}");
-
-            System.out.println("----------------------------------");
+            printStep(i, currentPage, memory, freq, isFault);
         }
 
         return faults;
+    }
+
+    private static int findLFUPage(LinkedHashSet<Integer> memory, Map<Integer, Integer> freq) {
+        int lfuPage = -1;
+        int minFreq = Integer.MAX_VALUE;
+
+        // find laest freq if all
+        for (int page : memory) {
+            if (freq.get(page) < minFreq) {
+                minFreq = freq.get(page);
+                lfuPage = page;
+            }
+        }
+
+        return lfuPage;
+    }
+
+    private static void printStep(int step, int page,
+                                  LinkedHashSet<Integer> memory,
+                                  Map<Integer, Integer> freq,
+                                  boolean isFault) {
+        System.out.println("Step " + (step + 1) + ": Page " + page +
+                (isFault ? " → FAULT" : " → HIT"));
+
+        System.out.print("Memory: [ ");
+        for (int p : memory) {
+            System.out.print(p + " ");
+        }
+        System.out.println("]");
+
+        System.out.print("Frequencies: { ");
+        for (int p : memory) {
+            System.out.print(p + "=" + freq.get(p) + " ");
+        }
+        System.out.println("}");
+
+        System.out.println("----------------------------------");
     }
 }

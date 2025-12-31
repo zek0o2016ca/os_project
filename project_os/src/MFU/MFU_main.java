@@ -2,7 +2,7 @@ package MFU;
 
 import java.util.*;
 
-public class MFU_Main {
+public class MFU_main {
 
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);

@@ -1,6 +1,6 @@
 package Clock;
 
-class ClockManager {
+public class ClockManager {
     private PageFrame[] frames;
     private int pointer; // The "Clock Hand"
     private int pageFaults;
